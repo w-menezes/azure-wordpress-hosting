@@ -1,0 +1,22 @@
+# Azure WP VM config
+
+users:
+- name: shadow5025
+  groups: sudo, docker
+  sudo: ALL=(ALL) NOPASSWD:ALL
+  shell: /bin/bash
+
+package_update: true
+package_upgrade: true
+
+runcmd:
+- apt install -y git curl
+- |
+  if [ ! -d /opt/azure-wordpress-hosting ]; then
+    git clone git@github.com:w-menezes/azure-wordpress-hosting.git /opt/azure-wordpress-hosting
+  else
+    cd /opt/azure-wordpress-hosting && git pull
+  fi
+- chmod +x /opt/azure-wordpress-hosting/infra/*.sh
+- /opt/azure-wordpress-hosting/infra/harden-os.sh
+- /opt/azure-wordpress-hosting/infra/install-docker.sh

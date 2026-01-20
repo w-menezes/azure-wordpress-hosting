@@ -1,0 +1,162 @@
+PHASE 0 — Repo & Automation Baseline (Before Azure)
+
+Goal: Everything is reproducible before you create a VM.
+
+Step 0.1: Create Git Repository Structure
+
+This ensures infra, configs, and scripts are versioned from day one.
+
+wordpress-azure-vm/
+├── docker/
+│   ├── docker-compose.yml
+│   └── .env.example
+│
+├── nginx/
+│   ├── nginx.conf
+│   └── sites/
+│       ├── site1.conf
+│       └── site2.conf
+│
+├── scripts/
+│   ├── install-docker.sh
+│   ├── harden-os.sh
+│   ├── backup.sh
+│   └── restore.sh
+│
+├── mysql/
+│   └── init/
+│       ├── site1.sql
+│       └── site2.sql
+│
+├── docs/
+│   └── runbook.md
+│
+└── README.md
+
+
+Automation principle
+- Manual execution now
+- CI/CD later runs the same scripts
+
+PHASE 1 — Azure VM (Minimal, Hardened)
+- Step 1.1: Create the VM
+    - Recommended spec
+        - VM size: Standard_B2ms
+        - Disk: 64–128 GB Premium SSD
+        - OS: Ubuntu 24.04 LTS
+        - Public IP: Static
+- NSG Rules
+    - 22 → Your IPs only
+    - 80/443 → Cloudflare IP ranges only
+
+Step 1.2: OS Hardening (Scripted)
+- Run scripts/harden-os.sh:
+    - System updates
+    - Disable password auth
+    - SSH keys only
+    - Disable root SSH
+    - Install fail2ban
+    - Enable unattended upgrades
+- Verification
+    - SSH still works
+    - Fail2ban active
+    - Reboot-safe
+
+PHASE 2 — Container Runtime (Automation-First)
+- Step 2.1: Install Docker (Scripted)
+    - Run scripts/install-docker.sh:
+    - Docker Engine (official repo)
+    - Docker Compose plugin
+    - Enable on boot
+    - Add user to docker group
+- Verification
+    - docker info
+    - docker compose version
+
+PHASE 3 — Data Layer First (MySQL)
+- Step 3.1: MySQL Container
+    - Design
+        - One MySQL container
+        - Two databases
+        - Two users
+        - No external port
+- Persistence
+    - Host volume → /var/lib/mysql
+- Automation
+    - Database/user creation via init SQL scripts
+- Verification
+    - Data persists restart
+    - WP credentials connect internally
+
+PHASE 4 — WordPress Containers (Isolated)
+- Step 4.1: WordPress Site 1
+    - Dedicated container
+    - Dedicated DB
+    - Persistent wp-content
+- Step 4.2: WordPress Site 2
+    - Identical pattern
+    - No shared volumes
+- Verification
+    - Independent admin panels
+    - Media survives restarts
+
+PHASE 5 — NGINX Reverse Proxy
+- Step 5.1: NGINX Container
+    - Responsibilities
+        - Host-based routing
+        - Forward real client IPs
+        - Cloudflare-compatible headers
+- TLS Model
+    - Cloudflare Full (Strict)
+    - Origin cert stored on host
+- Verification
+    - Correct site routing
+    - No direct container exposure
+
+PHASE 6 — Cloudflare Integration
+- Step 6.1: DNS & TLS
+    - A records → VM IP
+    - Proxy enabled
+    - SSL mode: Full (Strict)
+- Verification
+    - HTTPS end-to-end
+    - Correct client IP logging
+
+PHASE 7 — Backups (Automated, Off-Box)
+- Step 7.1: Backup Strategy
+    - What
+        - MySQL dumps
+        - wp-content directories
+    - Where
+        - Azure Blob Storage
+    - How
+        - azcopy
+        - Managed Identity (preferred) or SAS token
+    - Automation
+        - backup.sh
+        - Cron nightly
+    - Verification
+        - Restore test succeeds
+
+PHASE 8 — Migration of Demo Site
+- Step 8.1: Data Migration
+    - Export DB
+    - Import into MySQL container
+    - Sync wp-content
+    - Update URLs
+- Verification
+    - No broken links
+    - Media intact
+
+PHASE 9 — Operational Baseline
+- Step 9.1: Logging & Monitoring (Minimal)
+    - Docker log rotation
+    - Disk usage alerts
+    - Cloudflare uptime checks
+
+PHASE 10 — CI/CD (Phase 2, No Rework Required)
+- When ready:
+    - GitHub Actions
+    - SSH deploy
+    - docker compose pull && up -d
+    - Config drift prevention
