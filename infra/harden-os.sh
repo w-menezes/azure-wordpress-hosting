@@ -24,4 +24,4 @@ systemctl enable fail2ban
 sysctl -w net.ipv4.ip_forward=0
 sysctl -w net.ipv4.conf.all.rp_filter=1
 
-systemctl restart sshd
+systemctl restart ssh
